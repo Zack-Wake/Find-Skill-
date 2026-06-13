@@ -1,9 +1,4 @@
 Claude.md
-
-<!-- Read by Claude Code before any session. Keep honest and current. -->
-
-## Project
-
 **Name:** FORGE — personal build pipeline
 
 **What it does:** Takes one seed term and carries it through six stages — FIND → SCOPE → BUILD → RANK → MONETISE → PUBLISH — to a published, monetised, ranking website. Built for one user (Zack), own build decisions. Not a client product, not multi-tenant.
@@ -88,7 +83,8 @@ Selector chooses on build type and cost, not habit.
 - Filter or delete rows from S1 output (emerging niches stay tracked)
 - Invent conventions not defined here
 - Mark a build/publish packet Done without passing every quality bar
+- **Rebuild an existing skill from scratch.** S1 (FIND) already exists at v2 — read the current SKILL.md + references/ first and EXTEND. Recreating working functionality is a failure, not progress.
 
 ## The one rule (anti-side-track)
 
-New idea mid-session → write it as a Draft packet tagged with its stage → keep building the current thing. Capture, don't chase.
+New idea mid-session → write it as a small explanation under 50 words and put in drafts. → keep building the current thing to DOD. Capture, don't chase.
