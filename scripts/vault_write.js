@@ -1,11 +1,12 @@
 'use strict';
 
-// Vault master-sheet logic (S1-008): dedup, staleness sweep, soft cap, CSV
-// fallback. Operates on plain row objects — Stage 9 reads/writes the actual
-// Vault Google Sheet via the same mechanism used for Tab 1/2 (Stages 4-7) and
+// Vault master-sheet logic (S1-008/009): dedup, staleness sweep, soft cap,
+// CSV fallback, and Vault/Watchlist tab routing. Operates on plain row
+// objects — Stage 9 reads/writes the actual Vault Google Sheet (Vault +
+// Watchlist tabs) via the same mechanism used for Tab 1/2 (Stages 4-7) and
 // passes rows through these functions. `monthly_revenue_low/high` must be
 // plain numbers. See references/vault_schema.md for the column layout and
-// rules this implements.
+// rules this implements — the same rules apply independently to each tab.
 //
 // Run `node scripts/vault_write.js` to execute the built-in self-test.
 
@@ -91,6 +92,43 @@ function planAppend(candidates, existingRows, today) {
     toAppend: fresh.slice(0, SOFT_CAP_PER_RUN),
     skippedDupes,
     overflow: fresh.slice(SOFT_CAP_PER_RUN),
+  };
+}
+
+/**
+ * Split candidate/result rows into their target tab by `band`. Rows with any
+ * other band (RED clusters have none) belong to neither tab.
+ *
+ * @param {object[]} rows
+ * @returns {{vault: object[], watchlist: object[]}}
+ */
+function splitByBand(rows) {
+  const vault = [];
+  const watchlist = [];
+  for (const row of rows) {
+    if (row.band === 'vault') vault.push(row);
+    else if (row.band === 'watchlist') watchlist.push(row);
+  }
+  return { vault, watchlist };
+}
+
+/**
+ * Plan appends for both Vault-sheet tabs at once. Splits `candidates` by
+ * `band` and runs `planAppend` independently against each tab's existing
+ * rows — separate dedup sets, separate soft caps, separate overflow. A
+ * watchlist row can never land in the vault plan or vice versa.
+ *
+ * @param {object[]} candidates - this run's Tab 2 rows with band set
+ * @param {object[]} existingVaultRows - current Vault-tab rows
+ * @param {object[]} existingWatchlistRows - current Watchlist-tab rows
+ * @param {string} today - 'YYYY-MM-DD'
+ * @returns {{vault: {toAppend: object[], skippedDupes: number, overflow: object[]}, watchlist: {toAppend: object[], skippedDupes: number, overflow: object[]}}}
+ */
+function planVaultAndWatchlist(candidates, existingVaultRows, existingWatchlistRows, today) {
+  const { vault, watchlist } = splitByBand(candidates);
+  return {
+    vault: planAppend(vault, existingVaultRows, today),
+    watchlist: planAppend(watchlist, existingWatchlistRows, today),
   };
 }
 
@@ -193,6 +231,8 @@ module.exports = {
   slugify,
   uniqueNicheId,
   planAppend,
+  splitByBand,
+  planVaultAndWatchlist,
   sweepStaleness,
   toCsv,
   fromCsv,
@@ -245,6 +285,49 @@ function selfTest() {
   const capResult = planAppend(manyCandidates, [], today);
   assert(capResult.toAppend.length === SOFT_CAP_PER_RUN, 'soft cap limits append to 50');
   assert(capResult.overflow.length === 5, 'overflow holds the remaining 5');
+
+  // splitByBand: buckets by band, RED (blank band) lands in neither
+  const split = splitByBand([
+    { niche_label: 'V', band: 'vault' },
+    { niche_label: 'W', band: 'watchlist' },
+    { niche_label: 'R', band: '' },
+  ]);
+  assert(split.vault.length === 1 && split.vault[0].niche_label === 'V', 'splitByBand buckets vault rows');
+  assert(split.watchlist.length === 1 && split.watchlist[0].niche_label === 'W', 'splitByBand buckets watchlist rows');
+
+  // planVaultAndWatchlist: independent dedup per tab
+  const mixedCandidates = [
+    { niche_label: 'Vault Niche One', band: 'vault', opportunity_tier: 'A', monthly_revenue_low: 1500 },
+    { niche_label: 'Vault Niche Two', band: 'vault', opportunity_tier: 'B', monthly_revenue_low: 1200 }, // dupe of existing vault row
+    { niche_label: 'Watchlist Niche One', band: 'watchlist', opportunity_tier: '', monthly_revenue_low: 300 },
+    { niche_label: 'A Red Niche', band: '', opportunity_tier: '', monthly_revenue_low: 0 }, // RED -> neither tab
+  ];
+  const existingVaultRows = [{ niche_id: 'vault-niche-two', selected_at: '2026-01-01', staleness_flag: 'FALSE' }];
+  const vwPlan = planVaultAndWatchlist(mixedCandidates, existingVaultRows, [], today);
+  assert(vwPlan.vault.toAppend.length === 1 && vwPlan.vault.toAppend[0].niche_label === 'Vault Niche One', 'vault tab dedups against its own existing rows');
+  assert(vwPlan.vault.skippedDupes === 1, 'vault tab skips its own dupe');
+  assert(vwPlan.watchlist.toAppend.length === 1 && vwPlan.watchlist.toAppend[0].niche_label === 'Watchlist Niche One', 'watchlist candidate lands on the watchlist tab');
+  assert(vwPlan.watchlist.skippedDupes === 0, 'watchlist tab has its own (empty) dedup set');
+  assert(vwPlan.vault.toAppend.every((r) => r.band === 'vault'), 'no watchlist rows leak into the vault plan');
+  assert(vwPlan.watchlist.toAppend.every((r) => r.band === 'watchlist'), 'no vault rows leak into the watchlist plan');
+
+  // planVaultAndWatchlist: each tab gets its own soft cap
+  const manyVault = Array.from({ length: 55 }, (_, i) => ({
+    niche_label: `Vault Niche ${i}`,
+    band: 'vault',
+    opportunity_tier: 'C',
+    monthly_revenue_low: 2000 - i,
+  }));
+  const fewWatchlist = Array.from({ length: 3 }, (_, i) => ({
+    niche_label: `Watchlist Niche ${i}`,
+    band: 'watchlist',
+    opportunity_tier: '',
+    monthly_revenue_low: 100 - i,
+  }));
+  const capSplit = planVaultAndWatchlist([...manyVault, ...fewWatchlist], [], [], today);
+  assert(capSplit.vault.toAppend.length === SOFT_CAP_PER_RUN, 'vault tab keeps its own 50-row soft cap');
+  assert(capSplit.vault.overflow.length === 5, 'vault tab overflow unaffected by watchlist volume');
+  assert(capSplit.watchlist.toAppend.length === 3 && capSplit.watchlist.overflow.length === 0, 'watchlist tab has its own cap, unaffected by vault volume');
 
   // CSV fallback round trip
   const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'vault-fallback-'));
