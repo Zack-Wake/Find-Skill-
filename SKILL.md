@@ -183,7 +183,7 @@ For each cluster row from Stage 7:
 2. **Gate 2 (money):** `Monthly Revenue Low (£)` ≥ the gate constant in `references/revenue_model.md`, and a Monetisation Tag is assigned.
 3. Set `Band` and `Opportunity Tier` per the assignment table in `references/revenue_model.md`:
    - Both gates pass → `Band = vault`, `Opportunity Tier` by Competition Profile colour (GREEN=A, YELLOW=B, ORANGE=C).
-   - Gate 1 passes, Gate 2 fails → `Band = watchlist`, `Opportunity Tier = null`.
+   - Gate 1 passes, Gate 2 fails → `Band = watchlist`, `Opportunity Tier` left blank (no tier).
    - Gate 1 fails (RED) → leave `Band` and `Opportunity Tier` blank.
 4. If the cluster has low revenue confidence (per the "Validate-before-build flag" rule in `references/revenue_model.md`) and `Band = vault`, append `validate before build` to `Notes`.
 

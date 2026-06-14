@@ -150,8 +150,10 @@ A Monetisation Tag is always assigned by Stage 6, so Gate 2 in practice is the �
 | pass — GREEN | pass | vault | A |
 | pass — YELLOW | pass | vault | B |
 | pass — ORANGE | pass | vault | C |
-| pass | fail | watchlist | null |
+| pass | fail | watchlist | *(blank)* |
 | fail (RED) | — | *(none — full sheet only)* | *(none)* |
+
+`*(blank)*` / `*(none)*` mean leave the Tab 2 cell empty — don't write the literal text "null".
 
 Tier is assigned only after clearing the £800 gate — e.g. a £300/mo GREEN niche goes to `watchlist`, not Tier A.
 
