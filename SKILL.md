@@ -12,7 +12,7 @@ Turn one seed term into a ranked Google Sheet of buildable website opportunities
 A two-tab Google Sheet:
 
 - **Tab 1 — Raw Discovery**: every query found, tagged by source modifier, with SERP composition
-- **Tab 2 — Ranked Opportunities**: sorted by `Realistic Monthly Revenue (Low)` descending, with full revenue band, monetisation tag, build-effort tag, months-to-revenue estimate
+- **Tab 2 — Ranked Opportunities**: sorted by `Realistic Monthly Revenue (Low)` descending, with full revenue band, monetisation tag, build-effort tag, months-to-revenue estimate, and a vault/watchlist `Band` + `Opportunity Tier` (A/B/C) from the two-gate qualification
 
 The full sheet is always returned — no rows filtered out. The user explicitly wants emerging niches tracked too, not just the obvious winners.
 
@@ -36,7 +36,9 @@ If Claude in Chrome isn't available: ask the user to install it, or fall back to
 
 ## Key references in this skill
 
-- `references/revenue_model.md` — UK RPV tables, CTR-by-rank, the revenue formula, default sort order
+- `references/revenue_model.md` — UK RPV tables, CTR-by-rank, the revenue formula, default sort order, and the Gates & Tiers logic used in Stage 8
+- `references/vault_and_gates.md` — the reasoning behind the vault/watchlist bands and tiers (background for Stage 8)
+- `references/handoff_schema.md` — the S1→S2 record shape; `band` and `opportunity_tier` are set in Stage 8
 - `references/modifier_library.md` — exhaustive seed expansion options for Stage 2
 - `scripts/extract_serp.js` — paste this into Claude in Chrome's `javascript_tool` to extract a SERP
 
@@ -44,7 +46,7 @@ If Claude in Chrome isn't available: ask the user to install it, or fall back to
 
 ---
 
-## The workflow (7 stages, human-in-the-loop)
+## The workflow (8 stages, human-in-the-loop)
 
 ### Stage 1: Confirm intent
 
@@ -163,11 +165,29 @@ Months_to_Revenue   = lookup by Competition_Profile  (3-6, 6-9, 9-18 months)
 
 **Tab 2 columns** (in this order):
 
-| Rank | Cluster Name | Cluster Volume | Competition | Realistic Rank | Monthly Visitors | Monetisation Tag | RPV Range (£) | **Monthly Revenue Low (£)** | **Monthly Revenue High (£)** | Months to Revenue | Build Effort | Hits Target? | Notes |
+| Rank | Cluster Name | Cluster Volume | Competition | Realistic Rank | Monthly Visitors | Monetisation Tag | RPV Range (£) | **Monthly Revenue Low (£)** | **Monthly Revenue High (£)** | Months to Revenue | Build Effort | Band | Opportunity Tier | Hits Target? | Notes |
+
+`Band` and `Opportunity Tier` are populated in Stage 8 — leave blank here.
 
 **Sort: `Monthly Revenue Low` DESCENDING.** Tie-break: `Months to Revenue` ascending.
 
 **Never filter rows.** The full sheet is the deliverable. If user gave a target in Stage 1, the `Hits Target?` column flags ✅ / ⚠️ stretch / ❌, but no row is removed.
+
+### Stage 8: Gate qualification + Band/Tier
+
+Read the "Gates & Tiers" section of `references/revenue_model.md` for the gate constant and the assignment table — apply it as written, do not redefine the £800 threshold here.
+
+For each cluster row from Stage 7:
+
+1. **Gate 1 (supply):** Competition Profile is not 🔴 RED.
+2. **Gate 2 (money):** `Monthly Revenue Low (£)` ≥ the gate constant in `references/revenue_model.md`, and a Monetisation Tag is assigned.
+3. Set `Band` and `Opportunity Tier` per the assignment table in `references/revenue_model.md`:
+   - Both gates pass → `Band = vault`, `Opportunity Tier` by Competition Profile colour (GREEN=A, YELLOW=B, ORANGE=C).
+   - Gate 1 passes, Gate 2 fails → `Band = watchlist`, `Opportunity Tier` left blank (no tier).
+   - Gate 1 fails (RED) → leave `Band` and `Opportunity Tier` blank.
+4. If the cluster has low revenue confidence (per the "Validate-before-build flag" rule in `references/revenue_model.md`) and `Band = vault`, append `validate before build` to `Notes`.
+
+**Never filter or delete rows.** `Band` and `Opportunity Tier` are additional Tab 2 columns — RED and watchlist rows stay in the full sheet exactly as Stage 7 produced them, just with these two columns filled in.
 
 ### Final delivery
 
@@ -176,7 +196,8 @@ Share both Sheet links. In the chat:
 1. Highlight the **top 5 by revenue** with a one-line "why this one" for each
 2. Highlight any **🔴 RED clusters** the user explicitly asked about, so they know why they were skipped (not forgotten)
 3. Flag any **fast-payback opportunities** (high revenue AND <6 months) — those are the immediate wins
-4. Ask for feedback: anything that looks wrong, anything surprising?
+4. Report the **vault/watchlist split**: how many clusters landed in `vault` (by tier A/B/C) vs `watchlist`
+5. Ask for feedback: anything that looks wrong, anything surprising?
 
 **Capture corrections to `learnings.md`** (create the file next to SKILL.md on first feedback). Examples worth logging:
 - "X niche is dead because Y" — niche-specific rules
@@ -193,7 +214,7 @@ The skill applies these on next run.
 1. End of Stage 1 — confirm seed + lenses
 2. End of Stage 2 — approve modifier matrix
 3. End of Stage 4 — sanity-check raw discovery before spending volume-lookup time
-4. End of Stage 7 — collect feedback for `learnings.md`
+4. End of Stage 8 — collect feedback for `learnings.md`
 
 User can say "run it end-to-end" to skip checkpoints once trust is established.
 
