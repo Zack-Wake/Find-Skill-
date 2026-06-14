@@ -16,7 +16,10 @@ A two-tab Google Sheet:
 
 The full sheet is always returned — no rows filtered out. The user explicitly wants emerging niches tracked too, not just the obvious winners.
 
-Plus a separate, persistent **Vault Sheet**: an append-only master record across every run, of every niche that's cleared Gate 1 (vault or watchlist band) — see `references/vault_schema.md`.
+Plus a separate, persistent **Vault Sheet** ("FIND Vault — Master") with two append-only tabs, both built on the column layout and rules in `references/vault_schema.md`, applied independently per tab:
+
+- **Vault tab** — niches that cleared both gates (`Band = vault`, Tier A/B/C). The only surface that ever feeds SCOPE (S2).
+- **Watchlist tab** — niches that cleared Gate 1 but not Gate 2 (`Band = watchlist`, "good idea, not enough demand yet"). Tracked for re-check as volumes grow; never proposed for SCOPE.
 
 ## When to use
 
@@ -31,7 +34,7 @@ Trigger for ANY of:
 ## Required tools
 
 - **Claude in Chrome** (for SERP scraping, Keyword Planner, Google Trends, quality grading)
-- **Google Drive MCP** (for the output Sheet and the Vault Sheet)
+- **Google Drive MCP** (for the output Sheet and the Vault Sheet's Vault + Watchlist tabs)
 - A Google account with Google Ads / Keyword Planner access (free)
 - **Node.js** (for `scripts/vault_write.js` in Stage 9 — no extra packages, built-in modules only)
 
@@ -42,10 +45,10 @@ If Claude in Chrome isn't available: ask the user to install it, or fall back to
 - `references/revenue_model.md` — UK RPV tables, CTR-by-rank, the revenue formula, default sort order, and the Gates & Tiers logic used in Stage 8
 - `references/vault_and_gates.md` — the reasoning behind the vault/watchlist bands and tiers (background for Stage 8)
 - `references/handoff_schema.md` — the S1→S2 record shape; `band` and `opportunity_tier` are set in Stage 8
-- `references/vault_schema.md` — the Vault master sheet's columns, dedup/staleness/cap/fallback rules (Stage 9)
+- `references/vault_schema.md` — the column layout and dedup/staleness/cap/fallback rules shared by the Vault and Watchlist tabs (Stage 9)
 - `references/modifier_library.md` — exhaustive seed expansion options for Stage 2
 - `scripts/extract_serp.js` — paste this into Claude in Chrome's `javascript_tool` to extract a SERP
-- `scripts/vault_write.js` — dedup/staleness/soft-cap/fallback functions used in Stage 9 (`node scripts/vault_write.js` runs its self-test)
+- `scripts/vault_write.js` — dedup/staleness/soft-cap/fallback functions used in Stage 9, including `planVaultAndWatchlist` which routes vault-band and watchlist-band rows to their own tab (`node scripts/vault_write.js` runs its self-test)
 
 **Read both reference files before Stage 2 if this skill is being run fresh** — they contain detail that doesn't belong in this file.
 
@@ -194,22 +197,21 @@ For each cluster row from Stage 7:
 
 **Never filter or delete rows.** `Band` and `Opportunity Tier` are additional Tab 2 columns — RED and watchlist rows stay in the full sheet exactly as Stage 7 produced them, just with these two columns filled in.
 
-### Stage 9: Save to Vault
+### Stage 9: Save to Vault & Watchlist
 
-Read `references/vault_schema.md` for the Vault Sheet's column layout and rules, and `scripts/vault_write.js` for the dedup/staleness/cap/fallback logic (`node scripts/vault_write.js` runs its self-test).
+Read `references/vault_schema.md` for the column layout and dedup/staleness/cap/fallback rules, and `scripts/vault_write.js` for the runnable logic (`node scripts/vault_write.js` runs its self-test). This stage applies those rules independently to two tabs of the same persistent sheet — **Vault** and **Watchlist** — never to each other's rows.
 
-1. **Locate the Vault Sheet.** On first-ever run, create it via Drive MCP (e.g. "FIND Vault — Master") and note its link. On every later run, reuse that same sheet — never create a second one.
-2. **Check for pending fallback files.** If any `vault_fallback_*.csv` exist in the working directory (left by a previous run where the Vault Sheet was unreachable), read them with `readPendingFallbacks` and fold their rows into this run's candidates. Mark each one merged with `markFallbackMerged` once its rows have been appended.
-3. **Staleness sweep.** Read the existing Vault rows, run `sweepStaleness(existingRows, today)`, and apply each returned `{niche_id, staleness_flag: true}` patch as a single-cell edit — the only in-place edit ever made to an existing row.
+1. **Locate the Vault Sheet.** On first-ever run, create it via Drive MCP (e.g. "FIND Vault — Master") with two tabs, **Vault** and **Watchlist**, and note its link. On every later run, reuse that same sheet and its two tabs — never create a second sheet or a second Watchlist tab.
+2. **Check for pending fallback files.** If any `vault_fallback_*.csv` exist in the working directory (left by a previous run where a tab was unreachable), read them with `readPendingFallbacks` — each row's `band` says which tab it belongs to. Mark each file merged with `markFallbackMerged` once its rows have been appended to the right tab.
+3. **Staleness sweep — both tabs, independently.** For the Vault tab's existing rows and again for the Watchlist tab's existing rows, run `sweepStaleness(existingRows, today)` and apply each returned `{niche_id, staleness_flag: true}` patch as a single-cell edit in that tab — the only in-place edit ever made to an existing row.
 4. **Build candidates.** From this run's Tab 2, take every row where `Band` is `vault` or `watchlist` (RED and blank-Band rows are excluded automatically) and map its columns onto the field list in `references/vault_schema.md` (e.g. `Monthly Revenue Low (£)` → `monthly_revenue_low`, `Cluster Name` → `niche_label`).
-5. **Plan the append.** Run `planAppend(candidates, existingRows, today)`, which returns:
-   - `toAppend` — new rows to write, deduped by `niche_id` and capped at `SOFT_CAP_PER_RUN` (50), sorted by `monthly_revenue_low` descending
-   - `skippedDupes` — candidates already in the Vault
-   - `overflow` — rows beyond the soft cap, left for a future run
-6. **Append.** Write `toAppend` to the end of the Vault Sheet, one row per niche, in the column order from `references/vault_schema.md`. Never overwrite or reorder existing rows.
-7. **If the Vault Sheet is unreachable at any point:** tell the user immediately, then write the full candidate set to a local fallback file with `writeFallback(rows, dir, today)`. Nothing is lost — it's picked up by step 2 on a future run.
+5. **Plan the append — split by band.** Run `planVaultAndWatchlist(candidates, existingVaultRows, existingWatchlistRows, today)`. It splits candidates by `band` and runs the same dedup + soft-cap (`SOFT_CAP_PER_RUN` = 50) + sort-by-`monthly_revenue_low`-descending logic independently for each tab, returning `{vault: {toAppend, skippedDupes, overflow}, watchlist: {toAppend, skippedDupes, overflow}}`.
+6. **Append — to the matching tab only.** Write `vault.toAppend` to the end of the Vault tab and `watchlist.toAppend` to the end of the Watchlist tab, one row per niche, in the column order from `references/vault_schema.md`. Never overwrite, reorder, or move a row between tabs.
+7. **If a tab is unreachable at any point:** tell the user immediately, then write the affected `toAppend` rows to a local fallback file with `writeFallback(rows, dir, today)`. Nothing is lost — it's picked up by step 2 on a future run.
 
-**Never filter or delete rows — in the Vault or in Tab 2.** Step 3's staleness flip is the only sanctioned in-place edit; everything else is append-only.
+**Watchlist rows never advance to SCOPE.** The Watchlist tab is tracking-only — "good idea, not enough demand yet". Only Vault-tab rows (Tier A/B/C) are ever proposed as S1→S2 handoff candidates.
+
+**Never filter or delete rows — in either tab or in Tab 2.** Step 3's staleness flip is the only sanctioned in-place edit; everything else is append-only.
 
 ### Final delivery
 
@@ -219,7 +221,7 @@ Share both Sheet links — the run's Tab 1/2 sheet and the Vault Sheet. In the c
 2. Highlight any **🔴 RED clusters** the user explicitly asked about, so they know why they were skipped (not forgotten)
 3. Flag any **fast-payback opportunities** (high revenue AND <6 months) — those are the immediate wins
 4. Report the **vault/watchlist split**: how many clusters landed in `vault` (by tier A/B/C) vs `watchlist`
-5. Report **Vault save results**: how many rows were newly appended, how many were skipped as dupes, how many existing rows were freshly flagged stale, and any soft-cap overflow or fallback-file note
+5. Report **Vault & Watchlist save results**, for each tab separately: how many rows were newly appended, how many were skipped as dupes, how many existing rows were freshly flagged stale, and any soft-cap overflow or fallback-file note. Make clear that Watchlist rows are tracked only — none are proposed for SCOPE.
 6. Ask for feedback: anything that looks wrong, anything surprising?
 
 **Capture corrections to `learnings.md`** (create the file next to SKILL.md on first feedback). Examples worth logging:
