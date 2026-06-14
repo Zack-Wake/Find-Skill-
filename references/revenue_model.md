@@ -100,7 +100,7 @@ When Google shows an AI Overview (AIO) for a query, organic CTR takes a haircut 
 
 | Competition Profile | Realistic Rank | Base CTR (no AIO) | AIO Haircut | CTR with AIO |
 |---|---|---|---|---|
-| 🟢 GREEN | Rank 2-3 | 18% | -55% | 8.1% |
+| 🟢 GREEN | Rank 2-3 | 18% | -55% | 8.0% |
 | 🟡 YELLOW | Rank 4-6 | 7% | -50% | 3.5% |
 | 🟠 ORANGE | Rank 7-10 | 2.5% | -40% | 1.5% |
 | 🔴 RED | Skip | — | — | — |
