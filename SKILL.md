@@ -16,6 +16,8 @@ A two-tab Google Sheet:
 
 The full sheet is always returned — no rows filtered out. The user explicitly wants emerging niches tracked too, not just the obvious winners.
 
+Plus a separate, persistent **Vault Sheet**: an append-only master record across every run, of every niche that's cleared Gate 1 (vault or watchlist band) — see `references/vault_schema.md`.
+
 ## When to use
 
 Trigger for ANY of:
@@ -29,8 +31,9 @@ Trigger for ANY of:
 ## Required tools
 
 - **Claude in Chrome** (for SERP scraping, Keyword Planner, Google Trends, quality grading)
-- **Google Drive MCP** (for the output Sheet)
+- **Google Drive MCP** (for the output Sheet and the Vault Sheet)
 - A Google account with Google Ads / Keyword Planner access (free)
+- **Node.js** (for `scripts/vault_write.js` in Stage 9 — no extra packages, built-in modules only)
 
 If Claude in Chrome isn't available: ask the user to install it, or fall back to manual paste mode (much slower — flag this clearly).
 
@@ -39,14 +42,16 @@ If Claude in Chrome isn't available: ask the user to install it, or fall back to
 - `references/revenue_model.md` — UK RPV tables, CTR-by-rank, the revenue formula, default sort order, and the Gates & Tiers logic used in Stage 8
 - `references/vault_and_gates.md` — the reasoning behind the vault/watchlist bands and tiers (background for Stage 8)
 - `references/handoff_schema.md` — the S1→S2 record shape; `band` and `opportunity_tier` are set in Stage 8
+- `references/vault_schema.md` — the Vault master sheet's columns, dedup/staleness/cap/fallback rules (Stage 9)
 - `references/modifier_library.md` — exhaustive seed expansion options for Stage 2
 - `scripts/extract_serp.js` — paste this into Claude in Chrome's `javascript_tool` to extract a SERP
+- `scripts/vault_write.js` — dedup/staleness/soft-cap/fallback functions used in Stage 9 (`node scripts/vault_write.js` runs its self-test)
 
 **Read both reference files before Stage 2 if this skill is being run fresh** — they contain detail that doesn't belong in this file.
 
 ---
 
-## The workflow (8 stages, human-in-the-loop)
+## The workflow (9 stages, human-in-the-loop)
 
 ### Stage 1: Confirm intent
 
@@ -189,15 +194,33 @@ For each cluster row from Stage 7:
 
 **Never filter or delete rows.** `Band` and `Opportunity Tier` are additional Tab 2 columns — RED and watchlist rows stay in the full sheet exactly as Stage 7 produced them, just with these two columns filled in.
 
+### Stage 9: Save to Vault
+
+Read `references/vault_schema.md` for the Vault Sheet's column layout and rules, and `scripts/vault_write.js` for the dedup/staleness/cap/fallback logic (`node scripts/vault_write.js` runs its self-test).
+
+1. **Locate the Vault Sheet.** On first-ever run, create it via Drive MCP (e.g. "FIND Vault — Master") and note its link. On every later run, reuse that same sheet — never create a second one.
+2. **Check for pending fallback files.** If any `vault_fallback_*.csv` exist in the working directory (left by a previous run where the Vault Sheet was unreachable), read them with `readPendingFallbacks` and fold their rows into this run's candidates. Mark each one merged with `markFallbackMerged` once its rows have been appended.
+3. **Staleness sweep.** Read the existing Vault rows, run `sweepStaleness(existingRows, today)`, and apply each returned `{niche_id, staleness_flag: true}` patch as a single-cell edit — the only in-place edit ever made to an existing row.
+4. **Build candidates.** From this run's Tab 2, take every row where `Band` is `vault` or `watchlist` (RED and blank-Band rows are excluded automatically) and map its columns onto the field list in `references/vault_schema.md` (e.g. `Monthly Revenue Low (£)` → `monthly_revenue_low`, `Cluster Name` → `niche_label`).
+5. **Plan the append.** Run `planAppend(candidates, existingRows, today)`, which returns:
+   - `toAppend` — new rows to write, deduped by `niche_id` and capped at `SOFT_CAP_PER_RUN` (50), sorted by `monthly_revenue_low` descending
+   - `skippedDupes` — candidates already in the Vault
+   - `overflow` — rows beyond the soft cap, left for a future run
+6. **Append.** Write `toAppend` to the end of the Vault Sheet, one row per niche, in the column order from `references/vault_schema.md`. Never overwrite or reorder existing rows.
+7. **If the Vault Sheet is unreachable at any point:** tell the user immediately, then write the full candidate set to a local fallback file with `writeFallback(rows, dir, today)`. Nothing is lost — it's picked up by step 2 on a future run.
+
+**Never filter or delete rows — in the Vault or in Tab 2.** Step 3's staleness flip is the only sanctioned in-place edit; everything else is append-only.
+
 ### Final delivery
 
-Share both Sheet links. In the chat:
+Share both Sheet links — the run's Tab 1/2 sheet and the Vault Sheet. In the chat:
 
 1. Highlight the **top 5 by revenue** with a one-line "why this one" for each
 2. Highlight any **🔴 RED clusters** the user explicitly asked about, so they know why they were skipped (not forgotten)
 3. Flag any **fast-payback opportunities** (high revenue AND <6 months) — those are the immediate wins
 4. Report the **vault/watchlist split**: how many clusters landed in `vault` (by tier A/B/C) vs `watchlist`
-5. Ask for feedback: anything that looks wrong, anything surprising?
+5. Report **Vault save results**: how many rows were newly appended, how many were skipped as dupes, how many existing rows were freshly flagged stale, and any soft-cap overflow or fallback-file note
+6. Ask for feedback: anything that looks wrong, anything surprising?
 
 **Capture corrections to `learnings.md`** (create the file next to SKILL.md on first feedback). Examples worth logging:
 - "X niche is dead because Y" — niche-specific rules
@@ -214,7 +237,7 @@ The skill applies these on next run.
 1. End of Stage 1 — confirm seed + lenses
 2. End of Stage 2 — approve modifier matrix
 3. End of Stage 4 — sanity-check raw discovery before spending volume-lookup time
-4. End of Stage 8 — collect feedback for `learnings.md`
+4. End of Stage 9 — collect feedback for `learnings.md`
 
 User can say "run it end-to-end" to skip checkpoints once trust is established.
 
