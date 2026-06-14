@@ -115,3 +115,48 @@ Monthly_Visitors = Cluster_Volume × CTR
 ```
 
 `aio_present` is captured per query during Stage 3 (SERP scrape) and carried into the cluster record — see `references/handoff_schema.md`.
+
+## Gates & Tiers — Vault & Watchlist (S1-007)
+
+After Steps 1-4 above produce `Monthly_Revenue_Low/High` for a cluster, run it through the two-gate qualification. This sets the `Band` and `Opportunity Tier` columns on Tab 2 — see `references/vault_and_gates.md` for the reasoning and `references/handoff_schema.md` for how these map onto the S1→S2 record.
+
+**The gate constant — single source of truth**
+
+```
+VAULT_REVENUE_GATE_LOW = £800
+```
+
+Reference this constant wherever the £800 threshold is needed. Do not restate the number elsewhere.
+
+**Gate 1 — Supply**
+
+| Competition Profile | Gate 1 |
+|---|---|
+| 🟢 GREEN / 🟡 YELLOW / 🟠 ORANGE | pass |
+| 🔴 RED | fail |
+
+**Gate 2 — Money**
+
+```
+Gate_2 = (Monthly_Revenue_Low >= VAULT_REVENUE_GATE_LOW) AND (Monetisation_Tag is assigned)
+```
+
+A Monetisation Tag is always assigned by Stage 6, so Gate 2 in practice is the £800 check on `Monthly_Revenue_Low`.
+
+**Band & Opportunity Tier assignment**
+
+| Gate 1 | Gate 2 | Band | Opportunity Tier |
+|---|---|---|---|
+| pass — GREEN | pass | vault | A |
+| pass — YELLOW | pass | vault | B |
+| pass — ORANGE | pass | vault | C |
+| pass | fail | watchlist | null |
+| fail (RED) | — | *(none — full sheet only)* | *(none)* |
+
+Tier is assigned only after clearing the £800 gate — e.g. a £300/mo GREEN niche goes to `watchlist`, not Tier A.
+
+**Validate-before-build flag**
+
+A cluster has **low revenue confidence** if any of its queries were marked "negligible volume" in Stage 5, or if the head term's Keyword Planner volume sits in the widest band (100-1K). If `Band = vault` and revenue confidence is low, append `validate before build` to the row's `Notes`.
+
+**Never filter or delete rows.** `Band` and `Opportunity Tier` are additional Tab 2 columns — RED and watchlist rows stay in the full sheet, unchanged otherwise from Stage 7's output.
