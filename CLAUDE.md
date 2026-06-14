@@ -1,4 +1,8 @@
-Claude.md
+<!-- Working name FORGE. Rename here + in README if you pick another. -->
+<!-- Read by Claude Code before any session. Keep honest and current. -->
+
+## Project
+
 **Name:** FORGE — personal build pipeline
 
 **What it does:** Takes one seed term and carries it through six stages — FIND → SCOPE → BUILD → RANK → MONETISE → PUBLISH — to a published, monetised, ranking website. Built for one user (Zack), own build decisions. Not a client product, not multi-tenant.
@@ -87,4 +91,4 @@ Selector chooses on build type and cost, not habit.
 
 ## The one rule (anti-side-track)
 
-New idea mid-session → write it as a small explanation under 50 words and put in drafts. → keep building the current thing to DOD. Capture, don't chase.
+New idea mid-session → write it as a Draft packet tagged with its stage → keep building the current thing. Capture, don't chase.
