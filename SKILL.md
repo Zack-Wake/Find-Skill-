@@ -71,7 +71,7 @@ Don't over-interrogate. If user says "unsure" or "open" on any of these, default
 
 ### Stage 2: Modifier matrix
 
-Read `references/modifier_library.md`. Pick 15-25 root searches that fit the seed across these axes:
+Read `references/modifier_library.md`. Pick **up to 15 root searches** (capped — see Stage 3 for why) that fit the seed across these axes:
 - Audience modifiers (`[seed] for X`)
 - Use-case modifiers
 - Constraint modifiers
@@ -92,6 +92,7 @@ For each approved root search:
 2. Wait 2-3 seconds
 3. Run `scripts/extract_serp.js` via `javascript_tool` action `javascript_exec`
 4. Parse the returned JSON
+5. **Before navigating to the next query, wait a randomised 3-7 seconds.** Pick a new random value in this range for every query — don't fire searches back-to-back. Combined with the 15-search cap from Stage 2, this is what keeps a normal run from tripping Google's bot check.
 
 The script extracts:
 - Top 10 organic results + domain typing (Forum / BigBrand / EstablishedReview / Video / Reference / Other)
@@ -259,7 +260,7 @@ User can say "run it end-to-end" to skip checkpoints once trust is established.
 - **Volume range too wide to score**: Keyword Planner returns 100-1K bands. Use Trends for the tie-break and Top-Page Bid as commercial-intent signal.
 - **Reddit-#1 false positives**: sometimes Reddit ranks because the question is genuinely better answered as a community discussion (e.g. "is X a scam"). Read the thread before scoring as opportunity.
 - **Cluster bleed**: if a cluster has queries with very different intent (info vs commercial), split it into two clusters. Different revenue profiles.
-- **CAPTCHA after rapid Google searches**: the script triggers Google's bot detection after ~10-15 rapid queries. If detected, pause 60-90 seconds and resume. If persistent, slow the cadence to one query every 8-10 seconds.
+- **CAPTCHA after rapid Google searches**: Stage 2's 15-search cap and Stage 3's randomised 3-7s gap between scrapes are tuned to avoid this under normal conditions. If a CAPTCHA still appears, pause 60-90 seconds and resume. If it keeps happening, widen the gap to 8-12s (randomised) for the rest of the run.
 - **Stale RPV figures**: the table in `references/revenue_model.md` is good for 2025-26 UK. Refresh annually.
 - **AdSense decline**: display ad RPMs have been trending down ~5-10% per year. Use the lower end of the band for new builds.
 

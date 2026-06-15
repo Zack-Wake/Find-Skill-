@@ -1,6 +1,6 @@
 # Modifier Library
 
-Use this in Stage 2 (matrix generation) to pick 15-25 root searches per seed term.
+Use this in Stage 2 (matrix generation) to pick up to 15 root searches per seed term.
 Don't use all of these every time — pick the ones that fit the seed.
 
 ## Audience modifiers — `[seed] for [audience]`
