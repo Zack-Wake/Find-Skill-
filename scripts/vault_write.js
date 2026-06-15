@@ -1,12 +1,14 @@
 'use strict';
 
-// Vault master-sheet logic (S1-008/009): dedup, staleness sweep, soft cap,
-// CSV fallback, and Vault/Watchlist tab routing. Operates on plain row
-// objects — Stage 9 reads/writes the actual Vault Google Sheet (Vault +
-// Watchlist tabs) via the same mechanism used for Tab 1/2 (Stages 4-7) and
-// passes rows through these functions. `monthly_revenue_low/high` must be
-// plain numbers. See references/vault_schema.md for the column layout and
-// rules this implements — the same rules apply independently to each tab.
+// Vault master-sheet logic (S1-008/009/013): dedup, staleness sweep, soft
+// cap, CSV fallback, and Vault/Watchlist tab routing. Operates on plain row
+// objects — Stage 9 reads the live Vault Google Sheet (Vault + Watchlist
+// tabs) via Drive MCP, passes its rows through these functions, then writes
+// the resulting appends and staleness patches back via Claude in Chrome
+// (Drive MCP can create the sheet but can't edit an existing one in place).
+// `monthly_revenue_low/high` must be plain numbers. See
+// references/vault_schema.md for the column layout and rules this
+// implements — the same rules apply independently to each tab.
 //
 // Run `node scripts/vault_write.js` to execute the built-in self-test.
 
