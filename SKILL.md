@@ -33,12 +33,14 @@ Trigger for ANY of:
 
 ## Required tools
 
-- **Claude in Chrome** (for SERP scraping, Keyword Planner, Google Trends, quality grading)
-- **Google Drive MCP** (for the output Sheet and the Vault Sheet's Vault + Watchlist tabs)
+- **Claude in Chrome** (for SERP scraping, Keyword Planner, Google Trends, quality grading — and for every in-place edit to the Vault Sheet in Stage 9: appends, staleness flips, tab setup)
+- **Google Drive MCP, connected with write/create access** (used in Stage 9 to locate, create, and read the Vault Sheet — read-only "view" scope can locate and read it but cannot create it on first-ever run)
 - A Google account with Google Ads / Keyword Planner access (free)
 - **Node.js** (for `scripts/vault_write.js` in Stage 9 — no extra packages, built-in modules only)
 
 If Claude in Chrome isn't available: ask the user to install it, or fall back to manual paste mode (much slower — flag this clearly).
+
+If Drive MCP is connected read-only: Stage 9 can't create or update the Vault Sheet. Tell the user, then write this run's vault/watchlist candidates straight to `vault_fallback_<date>.csv` (step 7) so nothing is lost.
 
 ## Key references in this skill
 
@@ -201,13 +203,19 @@ For each cluster row from Stage 7:
 
 Read `references/vault_schema.md` for the column layout and dedup/staleness/cap/fallback rules, and `scripts/vault_write.js` for the runnable logic (`node scripts/vault_write.js` runs its self-test). This stage applies those rules independently to two tabs of the same persistent sheet — **Vault** and **Watchlist** — never to each other's rows.
 
-1. **Locate the Vault Sheet.** On first-ever run, create it via Drive MCP (e.g. "FIND Vault — Master") with two tabs, **Vault** and **Watchlist**, and note its link. On every later run, reuse that same sheet and its two tabs — never create a second sheet or a second Watchlist tab.
+**Drive MCP vs Claude in Chrome — who does what.** Drive MCP (the Drive API) can create a whole file and read a file's current contents, but it **cannot** append rows, edit cells, or add a tab to a spreadsheet that already exists — those are Sheets-UI operations. So:
+- **Drive MCP**: locate the Vault Sheet, create it if it doesn't exist yet, and read its current rows (both tabs) for the dedup/staleness/cap calculations below.
+- **Claude in Chrome**: perform every in-place edit on the live sheet — staleness-flag flips (step 3), new-row appends (step 6), and the one-time Watchlist-tab setup (step 1).
+
+1. **Locate the Vault Sheet.** Search Drive (via Drive MCP) for a Sheet titled "FIND Vault — Master".
+   - **If found**: reuse it — never create a second one. If it currently has only one tab (e.g. it was created via a Drive MCP file upload, which produces a single tab), that tab holds the **Vault** column headers (25 columns per `references/vault_schema.md`) — use Chrome to confirm/rename it to "Vault" and add a **Watchlist** tab with the same header row. This setup only happens once.
+   - **If not found**: create it via Drive MCP — upload a CSV containing just the Vault header row from `references/vault_schema.md` (Drive converts this to a single-tab Sheet), note its link, then use Chrome to add the **Watchlist** tab with the same header row.
 2. **Check for pending fallback files.** If any `vault_fallback_*.csv` exist in the working directory (left by a previous run where a tab was unreachable), read them with `readPendingFallbacks` — each row's `band` says which tab it belongs to. Mark each file merged with `markFallbackMerged` once its rows have been appended to the right tab.
-3. **Staleness sweep — both tabs, independently.** For the Vault tab's existing rows and again for the Watchlist tab's existing rows, run `sweepStaleness(existingRows, today)` and apply each returned `{niche_id, staleness_flag: true}` patch as a single-cell edit in that tab — the only in-place edit ever made to an existing row.
+3. **Staleness sweep — both tabs, independently.** For the Vault tab's existing rows and again for the Watchlist tab's existing rows (read via Drive MCP), run `sweepStaleness(existingRows, today)` and apply each returned `{niche_id, staleness_flag: true}` patch as a single-cell edit **in Chrome** — the only in-place edit ever made to an existing row.
 4. **Build candidates.** From this run's Tab 2, take every row where `Band` is `vault` or `watchlist` (RED and blank-Band rows are excluded automatically) and map its columns onto the field list in `references/vault_schema.md` (e.g. `Monthly Revenue Low (£)` → `monthly_revenue_low`, `Cluster Name` → `niche_label`).
 5. **Plan the append — split by band.** Run `planVaultAndWatchlist(candidates, existingVaultRows, existingWatchlistRows, today)`. It splits candidates by `band` and runs the same dedup + soft-cap (`SOFT_CAP_PER_RUN` = 50) + sort-by-`monthly_revenue_low`-descending logic independently for each tab, returning `{vault: {toAppend, skippedDupes, overflow}, watchlist: {toAppend, skippedDupes, overflow}}`.
-6. **Append — to the matching tab only.** Write `vault.toAppend` to the end of the Vault tab and `watchlist.toAppend` to the end of the Watchlist tab, one row per niche, in the column order from `references/vault_schema.md`. Never overwrite, reorder, or move a row between tabs.
-7. **If a tab is unreachable at any point:** tell the user immediately, then write the affected `toAppend` rows to a local fallback file with `writeFallback(rows, dir, today)`. Nothing is lost — it's picked up by step 2 on a future run.
+6. **Append — to the matching tab only, via Chrome.** In the Sheets UI, write `vault.toAppend` to the end of the Vault tab and `watchlist.toAppend` to the end of the Watchlist tab, one row per niche, in the column order from `references/vault_schema.md`. Never overwrite, reorder, or move a row between tabs.
+7. **If a tab is unreachable at any point** (Drive MCP can't read it, or Chrome can't open/edit it): tell the user immediately, then write the affected `toAppend` rows to a local fallback file with `writeFallback(rows, dir, today)`. Nothing is lost — it's picked up by step 2 on a future run.
 
 **Watchlist rows never advance to SCOPE.** The Watchlist tab is tracking-only — "good idea, not enough demand yet". Only Vault-tab rows (Tier A/B/C) are ever proposed as S1→S2 handoff candidates.
 
