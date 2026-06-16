@@ -49,6 +49,7 @@ If Drive MCP is connected read-only: Stage 9 can't create or update the Vault Sh
 - `references/handoff_schema.md` — the S1→S2 record shape; `band` and `opportunity_tier` are set in Stage 8
 - `references/vault_schema.md` — the column layout and dedup/staleness/cap/fallback rules shared by the Vault and Watchlist tabs (Stage 9)
 - `references/modifier_library.md` — exhaustive seed expansion options for Stage 2
+- `references/priors.md` — Zack's domain moats (flooring, watches, BJJ, reselling): adjacency triggers, competitor walls, monetisation reality, and insider knowledge banks. Read at the start of Stage 1; applies in Stages 2, 3, and 6 only when the seed matches a moat. Ignored for unrelated seeds.
 - `scripts/extract_serp.js` — paste this into Claude in Chrome's `javascript_tool` to extract a SERP
 - `scripts/vault_write.js` — dedup/staleness/soft-cap/fallback functions used in Stage 9, including `planVaultAndWatchlist` which routes vault-band and watchlist-band rows to their own tab (`node scripts/vault_write.js` runs its self-test)
 
@@ -69,6 +70,12 @@ Ask the user (use the `ask_user_input` tool with buttons if available):
 
 Don't over-interrogate. If user says "unsure" or "open" on any of these, default to broad and move on.
 
+**Moat detection.** After collecting the seed, read `references/priors.md` and scan each moat's `Adjacency triggers`. If the seed contains or closely matches one or more trigger terms:
+- Set `moat_match` to that moat (e.g. "FLOORING / TRADES") — carries forward into Stages 2, 3, and 6.
+- Note which competitor wall, monetisation reality, and insider knowledge bank applies.
+
+If no trigger matches, `moat_match` is unset. Skip priors entirely for this run — do not force it onto unrelated seeds.
+
 ### Stage 2: Modifier matrix
 
 Read `references/modifier_library.md`. Pick **up to 15 root searches** (capped — see Stage 3 for why) that fit the seed across these axes:
@@ -78,6 +85,8 @@ Read `references/modifier_library.md`. Pick **up to 15 root searches** (capped �
 - Intent modifiers (comparison / how-to / problem)
 
 Bias toward UK-relevant phrasing. Tag each root search with its modifier type.
+
+**Moat bias (applies only when `moat_match` is set).** Pull the matched moat's angles and sub-niches from `references/priors.md` and fill the 15-slot matrix with moat-specific searches first. For a flooring match: prioritise buyer-type angles (flood/insurance-payout, elderly/inheritance, sellers boosting value before sale), material sub-niches (carpet, LVT, laminate, sheet vinyl), and prep/problem angles. Generic modifiers from `references/modifier_library.md` fill remaining slots only after moat-specific angles are exhausted. Do not exceed the 15-search cap regardless of how many moat angles exist.
 
 **Output a numbered table to the user. STOP and wait for approval.** Ask:
 - Anything to remove?
@@ -99,6 +108,8 @@ The script extracts:
 - All questions ending in `?` on the page (covers any residual PAA + Discussions module)
 - "People also search for" + "Related products and services" refinements
 - Competition profile: 🟢 GREEN / 🟡 YELLOW / 🟠 ORANGE / 🔴 RED (auto-calculated from domain mix)
+
+**Moat competitor wall (applies only when `moat_match` is set).** Cross-reference the top-10 results against the moat's competitor wall in `references/priors.md` — named wall members already have the correct domain type; no guessing or per-run inference needed. For flooring: Supafit, Berwicks of Horsham, James for Carpets → `Other` (local retailer, not BigBrand); Checkatrade, MyBuilder, Rated People → `Other` (directory). These do not constitute a BigBrand or EstablishedReview wall. A flooring SERP that surfaces only wall members stays GREEN or YELLOW — do not auto-grade it RED.
 
 **Important: Google retired classic PAA boxes for most commercial queries in 2025-26.** Do not waste time clicking PAA expansions; the modern signals are PAS, Discussions, and Related Products. The extraction script handles this.
 
@@ -156,6 +167,10 @@ Choose based on:
 - What the top-3 ranking sites currently monetise with
 - Ad competition / top-page-bid (high £ bids = expensive ads = affiliate gold)
 - User's stated monetisation lens from Stage 1
+
+**Moat monetisation override (applies only when `moat_match` is set).** Use the moat's `Monetisation reality` from `references/priors.md` as the primary signal — it overrides what the top-3 sites appear to use. For flooring: tag as `lead-gen-local` (primary); fall back to `ads-generic` or `affiliate-physical` only for clearly informational-only clusters. Never tag a flooring cluster as `affiliate-saas` — that contradicts moat reality.
+
+**Insider knowledge flag (applies only when `moat_match` is set).** Add `insider knowledge available — [moat name]` to the cluster's `Notes` field. For flooring clusters whose head term matches resin/epoxy/screed triggers, note `contact-sourced, not first-hand` instead — per `references/priors.md`.
 
 ### Stage 7: Revenue calculation + Tab 2
 
@@ -231,7 +246,8 @@ Share both Sheet links — the run's Tab 1/2 sheet and the Vault Sheet. In the c
 3. Flag any **fast-payback opportunities** (high revenue AND <6 months) — those are the immediate wins
 4. Report the **vault/watchlist split**: how many clusters landed in `vault` (by tier A/B/C) vs `watchlist`
 5. Report **Vault & Watchlist save results**, for each tab separately: how many rows were newly appended, how many were skipped as dupes, how many existing rows were freshly flagged stale, and any soft-cap overflow or fallback-file note. Make clear that Watchlist rows are tracked only — none are proposed for SCOPE.
-6. Ask for feedback: anything that looks wrong, anything surprising?
+6. If `moat_match` was set: call out which vault clusters have **insider knowledge available** in their Notes — these are the highest-confidence content plays and the ones where RANK content can differentiate from generic AI output.
+7. Ask for feedback: anything that looks wrong, anything surprising?
 
 **Capture corrections to `learnings.md`** (create the file next to SKILL.md on first feedback). Examples worth logging:
 - "X niche is dead because Y" — niche-specific rules
@@ -271,4 +287,3 @@ User can say "run it end-to-end" to skip checkpoints once trust is established.
 - Integrate Ahrefs free tools (Site Explorer free tier) for backlink-strength check on top-5 competitors — adds a "ranking difficulty" beyond domain typing.
 - Add domain-age check on top-5 results (newer domains ranking = the SERP is genuinely soft).
 - Build a `monetisation_playbook.md` reference mapping each tag → revenue-implementation guide (which affiliate networks, which ad provider, etc).
-- Consider a `priors.md` file that captures Zack-specific niches with insider knowledge (flooring, trades, BJJ, watches, reselling) so the skill biases the modifier matrix toward his moats.
