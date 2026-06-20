@@ -95,12 +95,15 @@ Bias toward UK-relevant phrasing. Tag each root search with its modifier type.
 
 ### Stage 3: SERP scrape
 
-For each approved root search:
+**Resume check (run once at the very start of Stage 3, before the first navigation).** Call `loadCheckpoint(seed, date)` from `scripts/checkpoint.js` (where `date` is today's `YYYY-MM-DD`). If `exists` is true, the returned `doneSet`, `dedupList`, and `frequencyMap` already contain all state from the prior run — restore them as the running dedup state. Then call `pendingQueries(allQueries, doneSet)` to get only the not-yet-scraped root searches in their original order. If `exists` is false (fresh run), all root searches are pending and dedup state starts empty. Either way, `checkpointPath` is where all new records will be appended.
+
+For each pending root search:
 
 1. Navigate Claude in Chrome to `https://google.com/search?q=<encoded query>&hl=en&gl=uk`
 2. Wait 2-3 seconds
 3. Run `scripts/extract_serp.js` via `javascript_tool` action `javascript_exec`
 4. Parse the returned JSON
+4a. **Immediately** call `appendCheckpoint(record, checkpointPath)` from `scripts/checkpoint.js`, where `record` is `{ query_num, query, root_search, modifier_type, frequency, red_skip: false, timestamp: <ISO>, serp: <parsed extract_serp.js output> }`. Do this **before** step 5's inter-query wait — a crash mid-wait or mid-navigation loses nothing.
 5. **Before navigating to the next query, wait a randomised 3-7 seconds.** Pick a new random value in this range for every query — don't fire searches back-to-back. Combined with the 15-search cap from Stage 2, this is what keeps a normal run from tripping Google's bot check.
 
 The script extracts:
@@ -115,9 +118,11 @@ The script extracts:
 
 **Dedupe across searches.** Maintain a running list of unique queries. New query >80% semantically similar to existing → skip but increment a `frequency` counter on the original (signal of importance across modifiers).
 
-**Auto-skip rule.** If a root search returns competition profile 🔴 RED (5+ established review sites or big-brand SaaS in top 10), flag it as "wall — skip" and don't expand its PAS. Don't waste budget.
+**Auto-skip rule.** If a root search returns competition profile 🔴 RED (5+ established review sites or big-brand SaaS in top 10), call `appendCheckpoint` with `{ ..., red_skip: true, serp: null }` before moving on, then flag it as "wall — skip" and don't expand its PAS. Recording it prevents re-fetching on resume.
 
 ### Stage 4: Fill Tab 1 (Raw Discovery)
+
+**Tab 1 source.** Tab 1 is built from the checkpoint file at `runs/<seed-slug>_<YYYY-MM-DD>/checkpoint.jsonl` — every JSONL record contains the full extract_serp.js output plus Stage 3 bookkeeping, enough to reconstruct Tab 1 without re-scraping.
 
 Create Google Sheet via Drive MCP. Tab 1 columns:
 
