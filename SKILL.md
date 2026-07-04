@@ -137,6 +137,17 @@ The `Top-10 Domain Mix` cell is a compact summary like `Forum:2, BigBrand:3, Rev
 For non-RED queries, use Claude in Chrome to:
 
 1. **Google Keyword Planner** (`ads.google.com/aw/keywordplanner`) — set region to United Kingdom, paste queries in batches of 10. Capture: monthly volume range, ad competition (low/med/high — proxy for commercial intent), top-of-page bid range in £ (commercial intent signal).
+
+   **CPC capture (same lookup, no extra step).** KP surfaces a top-of-page bid range (low / high in £) alongside volume — the same screen, no extra navigation. For any cluster tagged `lead-gen-local` or `lead-gen-b2b`, call `captureCPC` from `scripts/cpc_capture.js` to store it:
+
+   ```js
+   const { captureCPC } = require('./scripts/cpc_capture');
+   captureCPC(keyword, cpcLow, cpcHigh);  // values pasted from KP — never estimated
+   // → appends one record to data/cpc_data.jsonl  (confidence: 'low')
+   ```
+
+   Paste the real figures from KP; `captureCPC` rejects missing or non-numeric input and writes nothing. Capture only — no scoring or revenue estimate happens here. The lead-gen model that consumes this data is a future packet.
+
 2. **Google Trends** (`trends.google.com`) — UK region, 12 months. Capture: trend direction (growing / flat / declining), seasonality flag.
 
 Add to working sheet:
