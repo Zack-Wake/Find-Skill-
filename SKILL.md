@@ -222,7 +222,35 @@ Read the "Gates & Tiers" section of `references/revenue_model.md` for the gate c
 For each cluster row from Stage 7:
 
 1. **Gate 1 (supply):** Competition Profile is not 🔴 RED.
-2. **Gate 2 (money):** `Monthly Revenue Low (£)` ≥ the gate constant in `references/revenue_model.md`, and a Monetisation Tag is assigned.
+2. **Gate 2 (money):** Depends on the Monetisation Tag:
+
+   **Non-lead-gen tags** (all tags except `lead-gen-local` / `lead-gen-b2b`): unchanged —
+   `Monthly Revenue Low (£)` ≥ the gate constant in `references/revenue_model.md`.
+
+   **Lead-gen tags** (`lead-gen-local` / `lead-gen-b2b`): two sourced paths to the same £800 floor.
+   Use `gate2Check` from `scripts/leadgen_model.js`:
+
+   ```js
+   const { gate2Check } = require('./scripts/leadgen_model');
+   const result = gate2Check(tag, revenueLow, keyword, clusterVolume, competitionProfile);
+   // result → { pass, path: 'rpv'|'cpc-traffic-value'|null, flags, cpcResult }
+   ```
+
+   - **RPV path** — `Monthly Revenue Low (£)` ≥ £800: pass as normal.
+   - **CPC-traffic-value path** — `clusterVolume × CTR(profile) × cpc_low` ≥ £800:
+     pass if a real CPC was captured via `captureCPC` during Stage 5.
+     Requires no additional lookup — uses what was already stored in `data/cpc_data.jsonl`.
+
+   Gate 2 passes if **either** path clears £800. The floor itself is unchanged.
+
+   **If `getCPC` returns null (no CPC captured for this keyword):** fall back to RPV-only.
+   Append `lead-gen model not evaluated (no CPC)` to `Notes` — not a failure, just a flag.
+
+   **If Gate 2 passes via the CPC path** (RPV failed, CPC passed), append all three to `Notes`:
+   - `revenue_model:cpc-traffic-value`
+   - `revenue_confidence:low`
+   - `manual KP check required before build`
+
 3. Set `Band` and `Opportunity Tier` per the assignment table in `references/revenue_model.md`:
    - Both gates pass → `Band = vault`, `Opportunity Tier` by Competition Profile colour (GREEN=A, YELLOW=B, ORANGE=C).
    - Gate 1 passes, Gate 2 fails → `Band = watchlist`, `Opportunity Tier` left blank (no tier).
