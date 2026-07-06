@@ -1,4 +1,20 @@
-# Handoff Contract — PROD-001 (v1.2)
+# Handoff Contract — PROD-001 (v1.2) ⚠️ RETIRED
+
+> **Single source of truth: `references/vault_schema.md`.**
+> This file is superseded. The handoff record shape is now the flat 25-column
+> layout defined in `vault_schema.md` — the same columns the Vault Google Sheet
+> uses. `scripts/emit_handoff.js` emits that flat format; SCOPE reads it.
+>
+> The `rpv_band` / `monthly_revenue_band` array format shown in the worked
+> example below is **no longer the output format** — the emitter uses
+> `rpv_low`, `rpv_high`, `monthly_revenue_low`, `monthly_revenue_high` instead.
+> Do not use this file to build SCOPE or any other consumer.
+
+---
+
+*Original content preserved below for historical reference only.*
+
+---
 
 The fixed form FIND hands to SCOPE. One record = one niche advanced through the gate. Multiple niches = an array of these. Once locked, SCOPE can be built entirely on its own.
 

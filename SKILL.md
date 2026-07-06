@@ -340,6 +340,24 @@ Read `references/vault_schema.md` for the column layout and dedup/staleness/cap/
 
 **Never filter or delete rows — in either tab or in Tab 2.** Step 3's staleness flip is the only sanctioned in-place edit; everything else is append-only.
 
+### Stage 10: Emit FIND→SCOPE handoff records
+
+After Stage 9 completes the Vault write, call `emitHandoffs` from `scripts/emit_handoff.js` with this run's vault rows:
+
+```js
+const { emitHandoffs } = require('./scripts/emit_handoff');
+const result = emitHandoffs(vault.toAppend);
+// result → { emitted: string[], skipped: Array<{niche_id, reason}> }
+```
+
+**Vault niches only.** Watchlist and excluded niches do not emit — they stay tracked in the sheet per the never-delete rule. This step does not duplicate or re-score any data; it assembles what Stage 9 already wrote.
+
+Each emitted record lands in `data/handoffs/<niche_id>.json` — one file per niche, schema-versioned (v1.2), committed. The file carries every provenance flag the schema defines: `volume_confidence`, `revenue_confidence`, and any `notes` flags (e.g. `validate before build`, `revenue_model:cpc-traffic-value`, `manual KP check required before build`) — so SCOPE knows exactly what is verified vs estimated.
+
+**If a required field is missing on a niche:** `emitHandoffs` skips that record and logs `handoff skipped: <niche_id>: missing <field>`. The Vault row is unaffected. Never fabricate or default a missing field.
+
+**Emit only.** No scoring, no gating change, no Vault/Watchlist edit. The schema is defined by `references/vault_schema.md`; this step reads it, never edits it.
+
 ### Final delivery
 
 Share both Sheet links — the run's Tab 1/2 sheet and the Vault Sheet. In the chat:
