@@ -162,3 +162,63 @@ Tier is assigned only after clearing the £800 gate — e.g. a £300/mo GREEN ni
 A cluster has **low revenue confidence** if any of its queries were marked "negligible volume" in Stage 5, or if the head term's Keyword Planner volume sits in the widest band (100-1K). If `Band = vault` and revenue confidence is low, append `validate before build` to the row's `Notes`.
 
 **Never filter or delete rows.** `Band` and `Opportunity Tier` are additional Tab 2 columns — RED and watchlist rows stay in the full sheet, unchanged otherwise from Stage 7's output.
+
+## CPC-traffic-value model — lead-gen Gate-2 second path (S1-018)
+
+A second sourced route to Gate 2 for `lead-gen-local` and `lead-gen-b2b` clusters only.
+Implemented in `scripts/leadgen_model.js`; consumes CPC data stored by `scripts/cpc_capture.js`.
+
+### What it is
+
+Organic traffic on a lead-gen keyword has a measurable floor value: what an advertiser pays per click to reach the same searcher via paid search. If the monthly organic visitors would be worth ≥ £800 at that CPC rate, the niche is commercially viable even when the RPV formula falls short.
+
+This is a **conservative proxy floor** — a real lead is almost always worth more than one click's ad value (leads convert to enquiries, enquiries to jobs). The CPC value is the floor, not the ceiling.
+
+### Formula
+
+```
+cpc_traffic_value = clusterVolume × CTR(competitionProfile) × cpc_low
+```
+
+- `clusterVolume` — same cluster volume as Stage 7 (head + PAS + long-tail buffer)
+- `CTR(competitionProfile)` — from the realistic-rank table above (do not redefine)
+- `cpc_low` — low end of the KP top-of-page bid range, captured via `captureCPC` in Stage 5
+
+Uses the **low end** of the CPC range and the **band CTR** (not best-case) throughout — conservative because this value decides a PASS.
+
+### Confidence
+
+`confidence: 'low'` on every CPC-path result. KP bid ranges are indicators of advertiser demand, not receipts. The model will be recalibrated with real data in PROD-006 once builds are live.
+
+### Gate-2 decision
+
+```
+Gate_2 (lead-gen) = (Monthly_Revenue_Low >= VAULT_REVENUE_GATE_LOW)  // RPV path
+                 OR (cpc_traffic_value    >= VAULT_REVENUE_GATE_LOW)  // CPC path
+```
+
+The `VAULT_REVENUE_GATE_LOW = £800` constant is unchanged. This is a second sourced route to the same floor, not a lower bar.
+
+### Flags on a CPC-path pass
+
+When Gate 2 passes via the CPC path (RPV failed), three flags are appended to the cluster's `Notes` in Tab 2:
+
+| Flag | Meaning |
+|---|---|
+| `revenue_model:cpc-traffic-value` | Identifies which model decided the pass |
+| `revenue_confidence:low` | KP bids are an indicator; calibrate before scaling |
+| `manual KP check required before build` | Verify the CPC figure is current before committing to build |
+
+### Fallback when no CPC is captured
+
+If `getCPC(keyword)` returns null (no `captureCPC` call was made during Stage 5 for this cluster):
+- Gate 2 falls back to RPV-only
+- Flag `lead-gen model not evaluated (no CPC)` appended to `Notes`
+- No fabrication: the CPC path simply does not run
+
+### What this model never does
+
+- Fabricates, estimates, or defaults a CPC figure
+- Changes the £800 floor or RPV bands
+- Applies to non-lead-gen tags
+- Models enquiry rate × price-per-lead — that requires marketplace per-lead data and is a separate future packet
