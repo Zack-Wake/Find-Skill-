@@ -57,7 +57,66 @@ If Drive MCP is connected read-only: Stage 9 can't create or update the Vault Sh
 
 ---
 
-## The workflow (9 stages, human-in-the-loop)
+## The workflow (10 stages, human-in-the-loop)
+
+### Stage 0: Seed pre-screen (no-scrape money gate)
+
+**Run this stage before Stage 1.** It is a cheap, local check — no Chrome, no network — that rejects seeds which can't reach the £800/mo revenue gate even at optimistic best-case rank. A full FIND run fires only on seeds that pencil out.
+
+**How to invoke (standalone):**
+
+```
+node scripts/prescreen.js   # runs self-test only; returns exit 0 on pass
+```
+
+To pre-screen a seed directly, call `preScreen` from `scripts/prescreen.js`:
+
+```js
+const { preScreen } = require('./scripts/prescreen');
+const result = preScreen(seed, kpVolume, tag, { override: false });
+// result → { verdict: 'PROCEED' | 'REJECT' | 'NO_VOLUME', reason, math }
+```
+
+**Inputs you must paste (real figures — never estimated):**
+
+| Input | Where to get it |
+|---|---|
+| `seed` | The raw search term |
+| `kpVolume` | Real monthly volume from Google Keyword Planner (UK region) — copy the number |
+| `tag` | The monetisation tag you expect (one of the tags in `references/revenue_model.md`) |
+
+**Money math (optimistic ceiling):**
+
+```
+projected = kpVolume × RPV_high(tag) × 0.18   // best-case: GREEN rank, 18% CTR
+PROCEED   if projected ≥ £800
+REJECT    otherwise (blocking)
+```
+
+The £800 floor and all RPV/CTR constants are read from `references/revenue_model.md` — Stage 0 does not define its own.
+
+**Verdicts:**
+
+| Verdict | Meaning |
+|---|---|
+| `PROCEED` | Optimistic revenue clears £800 — run Stage 1 |
+| `REJECT` | Does not pencil out at best-case rank — do not proceed |
+| `NO_VOLUME` | `kpVolume` missing or non-numeric — stage refuses to run until real volume is pasted |
+
+**Override.** Pass `{ override: true }` to force `PROCEED` on a REJECT (e.g. when you have insider data that justifies it). The verdict is logged as `verdict_overridden: true`. This is a human decision, not a default.
+
+**Log.** Every call appends one record to `runs/prescreen_log.jsonl` (append-only, never deleted). Rejections include a human-readable `reason`.
+
+**What Stage 0 never does:**
+- Opens Chrome or makes any network call
+- Reads competition or scrapes SERPs
+- Writes to Vault, Watchlist, or any downstream file
+- Changes the £800 floor, RPV bands, CTR table, or revenue formula
+- Fabricates or estimates a volume figure
+
+**Gate:** A `REJECT` verdict blocks entry to Stage 1 unless `override: true` is explicitly set. Nothing downstream is touched. A `PROCEED` verdict means Stage 1 may proceed normally — Stage 0 has no other effect on the workflow.
+
+---
 
 ### Stage 1: Confirm intent
 
