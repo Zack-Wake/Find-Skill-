@@ -29,13 +29,14 @@ const REQUIRED_STRING = [
   'head_keyword',
   'volume_confidence',    // low | med | high
   'competition_tier',     // GREEN | YELLOW | ORANGE
+  'realistic_rank',       // range label from revenue model, e.g. "2-3", "4-6", "7-10"
   'monetisation_tag',
   'revenue_confidence',   // low | med | high
   'band',                 // vault | watchlist — only 'vault' emits
 ];
 
 const REQUIRED_NUMBER = [
-  'cluster_volume', 'realistic_rank',
+  'cluster_volume',
   'rpv_low', 'rpv_high',
   'monthly_revenue_low', 'monthly_revenue_high',
 ];
@@ -47,6 +48,10 @@ const REQUIRED_BOOLEAN = [
 
 // cluster_keywords: string (comma-separated from sheet) or non-empty array
 const REQUIRED_ARRAY_OR_STRING = ['cluster_keywords'];
+
+// volume_confidence and revenue_confidence: must be one of these three values
+const VALID_VOLUME_CONFIDENCE   = new Set(['low', 'med', 'high']);
+const VALID_REVENUE_CONFIDENCE  = new Set(['low', 'med', 'high']);
 
 // opportunity_tier: must be A/B/C for vault niches
 const VALID_OPPORTUNITY_TIERS = new Set(['A', 'B', 'C']);
@@ -126,6 +131,14 @@ function _missingFields(niche) {
     if (!ok) bad.push(f);
   }
 
+  // volume_confidence and revenue_confidence: must be low | med | high
+  if (!VALID_VOLUME_CONFIDENCE.has(niche.volume_confidence)) {
+    bad.push('volume_confidence');
+  }
+  if (!VALID_REVENUE_CONFIDENCE.has(niche.revenue_confidence)) {
+    bad.push('revenue_confidence');
+  }
+
   // opportunity_tier: vault niches require A/B/C
   if (!VALID_OPPORTUNITY_TIERS.has(niche.opportunity_tier)) {
     bad.push('opportunity_tier');
@@ -202,9 +215,9 @@ if (require.main === module) {
     head_keyword:         'resin flooring uk',
     cluster_keywords:     ['resin floor coating uk', 'epoxy floor uk', 'industrial resin flooring'],
     cluster_volume:       3200,
-    volume_confidence:    'medium',
+    volume_confidence:    'med',
     competition_tier:     'GREEN',
-    realistic_rank:       2,
+    realistic_rank:       '2-3',
     aio_present:          false,
     monetisation_tag:     'lead-gen-local',
     rpv_low:              0.30,
