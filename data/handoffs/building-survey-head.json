@@ -1,0 +1,32 @@
+{
+  "niche_id": "building-survey-head",
+  "niche_label": "Building survey (head)",
+  "seed_term": "building survey",
+  "selected_at": "2026-07-13",
+  "head_keyword": "building survey",
+  "cluster_keywords": [
+    "survey level 3",
+    "cost",
+    "template",
+    "near me"
+  ],
+  "cluster_volume": 8100,
+  "volume_confidence": "low",
+  "competition_tier": "ORANGE",
+  "realistic_rank": "7-10",
+  "aio_present": false,
+  "monetisation_tag": "lead-gen-professional",
+  "rpv_low": 8,
+  "rpv_high": 35,
+  "monthly_revenue_low": 1620,
+  "monthly_revenue_high": 7087.5,
+  "revenue_confidence": "med",
+  "band": "vault",
+  "opportunity_tier": "C",
+  "staleness_flag": false,
+  "priors_match": "Horsham/Crawley/West Sussex - strongest signal of the session: horshamsurveyors.co.uk + sussexsurveyors.com rank on the BARE HEAD TERM (no localisation needed), plus explicit 'Surveyors Horsham' / 'RICS Surveyors West Sussex' PAS on near-me",
+  "trend": null,
+  "notes": "REAL DATA: 8,100/mo, £7.70 CPC. STRONGEST LOCAL SIGNAL OF SESSION - both horshamsurveyors.co.uk and sussexsurveyors.com rank on the bare head term. Only RICS as brand, no wall. | volume triangulated: KS 8,100 + UB 6.6K, both UK, 2026-07-14; robust to £800 gate at 6,600. volume_confidence LOW (triangulated, not KP-verified)",
+  "source_run": "runs/building-survey_2026-07-13/checkpoint.jsonl",
+  "schema_version": "1.2"
+}

@@ -1,0 +1,31 @@
+{
+  "niche_id": "homebuyer-vs-building-survey-merged",
+  "niche_label": "Homebuyer vs building survey (merged)",
+  "seed_term": "building survey",
+  "selected_at": "2026-07-13",
+  "head_keyword": "homebuyer survey vs building survey",
+  "cluster_keywords": [
+    "reddit/mumsnet threads",
+    "what is a homebuyer survey",
+    "cost"
+  ],
+  "cluster_volume": 1400,
+  "volume_confidence": "low",
+  "competition_tier": "GREEN",
+  "realistic_rank": "2-3",
+  "aio_present": false,
+  "monetisation_tag": "lead-gen-professional",
+  "rpv_low": 8,
+  "rpv_high": 35,
+  "monthly_revenue_low": 2016,
+  "monthly_revenue_high": 8820,
+  "revenue_confidence": "low",
+  "band": "vault",
+  "opportunity_tier": "A",
+  "staleness_flag": false,
+  "priors_match": null,
+  "trend": null,
+  "notes": "MERGED with 'building survey vs homebuyer report' (reversed word order, same forums/solicitors). Softest supply of the run (GREEN), high-intent comparison content. | sub-cluster volumes ESTIMATED (formula). Head term triangulated: KS 8,100 + UB 6.6K, both UK, 2026-07-14; robust to £800 gate at 6,600. volume_confidence LOW (triangulated, not KP-verified)",
+  "source_run": "runs/building-survey_2026-07-13/checkpoint.jsonl",
+  "schema_version": "1.2"
+}
