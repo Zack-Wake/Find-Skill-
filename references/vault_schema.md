@@ -1,6 +1,6 @@
 # Vault Schema — Master Sheet (S1-008)
 
-The Vault is a separate Google Sheet from each run's Tab 1 / Tab 2 working sheet — it's the **persistent, append-only master record** of every niche that has cleared Gate 1 (not RED), across all runs and all seeds. One row = one niche record, in the shape defined by `references/handoff_schema.md` (PROD-001 v1.2), flattened to sheet columns.
+The Vault is a separate Google Sheet from each run's Tab 1 / Tab 2 working sheet — it's the **persistent, append-only master record** of every niche that has cleared Gate 1 (not RED), across all runs and all seeds. One row = one niche record. This file (`vault_schema.md`) is the single source of truth for the flat handoff contract; `handoff_schema.md` is retired.
 
 ## The Vault Sheet vs the working sheet
 
@@ -23,10 +23,10 @@ The Vault is a separate Google Sheet from each run's Tab 1 / Tab 2 working sheet
 | realistic_rank | `realistic_rank` | |
 | aio_present | `aio_present` | TRUE/FALSE |
 | monetisation_tag | `monetisation_tag` | |
-| rpv_low | `rpv_band[0]` | |
-| rpv_high | `rpv_band[1]` | |
-| monthly_revenue_low | `monthly_revenue_band[0]` | |
-| monthly_revenue_high | `monthly_revenue_band[1]` | |
+| rpv_low | `rpv_low` | |
+| rpv_high | `rpv_high` | |
+| monthly_revenue_low | `monthly_revenue_low` | |
+| monthly_revenue_high | `monthly_revenue_high` | |
 | revenue_confidence | `revenue_confidence` | low/med/high |
 | band | `band` | vault / watchlist |
 | opportunity_tier | `opportunity_tier` | A / B / C / blank |
