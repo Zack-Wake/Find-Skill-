@@ -9,7 +9,7 @@ The Vault is a separate Google Sheet from each run's Tab 1 / Tab 2 working sheet
 
 ## Columns (in this order)
 
-| Column | Source (handoff_schema.md field) | Notes |
+| Column | Source field | Notes |
 |---|---|---|
 | niche_id | `niche_id` | slug, **dedup key** |
 | niche_label | `niche_label` | |
